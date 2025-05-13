@@ -9,6 +9,7 @@ authors = ["Ifechukwu Daniel <dandynamicx@gmail.com>"]
 rocket = "0.5.1"
 sui_ql_core = { git = "https://github.com/sand-worm-labs/sandworm-sui-ql", package = "sui_ql_core" }
 eql_core = { git = "https://github.com/sand-worm-labs/sandworm-eql", package = "eql_core" }
+sqlparser = "0.41.0"
 
 [dependencies.gluesql]
 git = "https://github.com/sand-worm-labs/gluesql"
