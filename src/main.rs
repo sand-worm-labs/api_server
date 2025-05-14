@@ -17,8 +17,15 @@ extern crate rocket;
 
 #[get("/")]
 fn index() -> &'static str {
-    "Hello, world!"
+    "Server is up and running!"
 }
+
+#[get("/health")]
+fn health_check() -> &'static str {
+    "Server is up and running!"
+}
+
+
 
 #[get("/run?<type_param>&<query>")]
 async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<String>> {
@@ -62,7 +69,6 @@ async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<Stri
                 return status::Custom(Status::Ok, RawJson(json));
             }
             Err(err) => {
-                eprintln!("Indexed query failed: {:?}", err);
                 return status::Custom(
                     Status::InternalServerError,
                     RawJson(r#"{"error": "Query execution failed."}"#.to_string()),
@@ -77,7 +83,8 @@ async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<Stri
     }
 }
 
+
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![index, run_query])
+    rocket::build().mount("/", routes![index, run_query, health_check])
 }
