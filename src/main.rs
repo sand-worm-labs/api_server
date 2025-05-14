@@ -30,12 +30,12 @@ pub enum QueryResult {
 
 #[get("/")]
 fn index() -> &'static str {
-    "Server is up and running!"
+    " Sandworm API Server is up and running!"
 }
 
 #[get("/health")]
-fn health_check() -> &'static str {
-    "Server is up and running!"
+fn health() -> RawJson<String> {
+    RawJson("{\"status\":\"healthy\"}".to_string())
 }
 
 #[get("/run?<type_param>&<query>")]
@@ -100,5 +100,5 @@ async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<Stri
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![index, run_query, health_check])
+    rocket::build().mount("/", routes![index, run_query, health])
 }
