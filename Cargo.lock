@@ -8007,6 +8007,7 @@ version = "0.1.0"
 dependencies = [
  "eql_core",
  "gluesql",
+ "regex",
  "rocket",
  "serde",
  "serde_json",
