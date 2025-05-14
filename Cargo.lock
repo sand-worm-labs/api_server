@@ -8008,6 +8008,8 @@ dependencies = [
  "eql_core",
  "gluesql",
  "rocket",
+ "serde",
+ "serde_json",
  "sqlparser 0.41.0",
  "sui_ql_core",
 ]
