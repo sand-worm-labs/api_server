@@ -1,11 +1,16 @@
-use sqlparser::dialect::GenericDialect;
-use sqlparser::parser::Parser;
-use sqlparser::ast::Statement;
+pub fn is_query_only(sql: String) -> bool {
+    let blacklist = [
+        "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "TRUNCATE", "REPLACE", "GRANT",
+        "REVOKE",
+    ];
 
-pub fn is_query_only(sql: &str) -> bool {
-    let dialect = GenericDialect {};
-    match Parser::parse_sql(&dialect, sql) {
-        Ok(statements) => statements.iter().all(|stmt| matches!(stmt, Statement::Query(_))),
-        Err(_) => false, // Not even valid SQL
-    }
+    let upper = sql.to_uppercase();
+    blacklist.iter().any(|kw| upper.contains(kw))
+}
+
+pub fn is_sui_rpc_query(query: &str) -> bool {
+    let upper = query.to_uppercase();
+    ["SUI_MAINNET", "SUI_TESTNET", "SUI_DEVNET"]
+        .iter()
+        .any(|target| upper.contains(target))
 }
