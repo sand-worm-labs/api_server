@@ -8002,7 +8002,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sandworm_api_api"
+name = "sandworm_api"
 version = "0.1.0"
 dependencies = [
  "eql_core",
