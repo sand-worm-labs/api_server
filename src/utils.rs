@@ -18,15 +18,15 @@ pub fn is_sui_rpc_query(query: &str) -> bool {
         .any(|target| upper.contains(target))
 }
 
-
-fn flatten_known_chain_tables(sql: &str) -> String {
+pub fn flatten_known_chain_tables(sql: &str) -> String {
     let known_chains: HashSet<&'static str> = [
         "sui", "suidev", "suitest", // Non-EVM
-        "eth", "sepolia", "arb", "base", "blast", "op", "poly","mycelium",
-        "mnt", "zks", "taiko", "celo", "avax", "scroll", "bnb",
-        "linea", "zora", "glmr", "movr", "ron", "ftm", "kava",
-        "gno", "mekong", "mina" 
-    ].into_iter().collect();
+        "eth", "sepolia", "arb", "base", "blast", "op", "poly", "mycelium", "mnt", "zks", "taiko",
+        "celo", "avax", "scroll", "bnb", "linea", "zora", "glmr", "movr", "ron", "ftm", "kava",
+        "gno", "mekong", "mina",
+    ]
+    .into_iter()
+    .collect();
 
     let re = Regex::new(r"\b([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\b").unwrap();
 
@@ -38,5 +38,6 @@ fn flatten_known_chain_tables(sql: &str) -> String {
         } else {
             caps[0].to_string() // Leave it untouched
         }
-    }).to_string()
+    })
+    .to_string()
 }

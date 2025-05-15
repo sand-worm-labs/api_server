@@ -1,3 +1,4 @@
+use gluesql;
 use rocket::{
     fairing::{Fairing, Info, Kind},
     http::{Header, Status},
@@ -9,14 +10,14 @@ use serde::Serialize;
 use serde_json::json;
 
 use eql_core::{
-    common::query_result::QueryResult as EqlQueryResult,
-    interpreter::Interpreter as EQlInterpreter,
+    common::query_result::QueryResult as EqlQueryResult, interpreter::Interpreter as EQlInterpreter,
 };
 
 use sui_ql_core::{
     common::query_result::QueryResult as SuiQueryResult,
     interpreter::Interpreter as SuiQlInterpreter,
 };
+
 pub struct CORS;
 
 #[rocket::async_trait]
@@ -24,13 +25,16 @@ impl Fairing for CORS {
     fn info(&self) -> Info {
         Info {
             name: "Attaching CORS headers to responses",
-            kind: Kind::Response
+            kind: Kind::Response,
         }
     }
 
     async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
         response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
-        response.set_header(Header::new("Access-Control-Allow-Methods", "POST, GET, PATCH, OPTIONS"));
+        response.set_header(Header::new(
+            "Access-Control-Allow-Methods",
+            "POST, GET, PATCH, OPTIONS",
+        ));
         response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
         response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
     }
@@ -64,7 +68,8 @@ async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<Stri
         return status::Custom(
             Status::BadRequest,
             RawJson(
-                r#"{"error": "Invalid type. Supported values are: 'rpc' or 'indexed'."} "#.to_string(),
+                r#"{"error": "Invalid type. Supported values are: 'rpc' or 'indexed'."} "#
+                    .to_string(),
             ),
         );
     }
@@ -108,6 +113,16 @@ async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<Stri
             }
         }
     } else {
+        let flattened_query = utils::flatten_known_chain_tables(query);
+        let parsed = match gluesql::prelude::parse(flattened_query) {
+            Ok(p) => p,
+            Err(e) => {
+                let error_json = json!({"error": format!("{}", e)}).to_string();
+                return status::Custom(Status::BadRequest, RawJson(error_json),);
+            }
+        };
+        println!("Query: {:?}", parsed);
+
         status::Custom(
             Status::InternalServerError,
             RawJson(r#"{"error": "Query execution failed."}"#.to_string()),
@@ -122,7 +137,6 @@ fn preflight_handler() -> &'static str {
 
 #[launch]
 fn rocket() -> _ {
-
     rocket::build()
         .attach(CORS)
         .mount("/", routes![index, run_query, health, preflight_handler])
