@@ -2,7 +2,6 @@
 name = "sandworm_api"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.79"
 authors = ["Ifechukwu Daniel <dandynamicx@gmail.com>"]
 
 [dependencies]
@@ -13,6 +12,7 @@ sqlparser = "0.41.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 regex = "1.11.1"
+rocket_cors = "0.5.2"
 
 [dependencies.gluesql]
 git = "https://github.com/sand-worm-labs/gluesql"
