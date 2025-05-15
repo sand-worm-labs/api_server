@@ -1,21 +1,22 @@
-use std::error::Error;
-use eql_core::{
-    common::query_result::QueryResult as EqlQueryResult, interpreter::Interpreter as EQlInterpreter,
+use rocket::{
+    fairing::{Fairing, Info, Kind},
+    http::{Header, Status},
+    response::{content::RawJson, status, Response},
+    Request,
 };
-use rocket::http::{Method, Status};
-use rocket::response::{content::RawJson, status};
+
 use serde::Serialize;
 use serde_json::json;
+
+use eql_core::{
+    common::query_result::QueryResult as EqlQueryResult,
+    interpreter::Interpreter as EQlInterpreter,
+};
 
 use sui_ql_core::{
     common::query_result::QueryResult as SuiQueryResult,
     interpreter::Interpreter as SuiQlInterpreter,
 };
-use rocket::fairing::{Fairing, Info, Kind};
-use rocket::Request;
-use rocket::http::Header;
-use rocket::response::Response;
-
 pub struct CORS;
 
 #[rocket::async_trait]
