@@ -22,10 +22,10 @@ pub fn is_sui_rpc_query(query: &str) -> bool {
 fn flatten_known_chain_tables(sql: &str) -> String {
     let known_chains: HashSet<&'static str> = [
         "sui", "suidev", "suitest", // Non-EVM
-        "eth", "sepolia", "arb", "base", "blast", "op", "poly",
+        "eth", "sepolia", "arb", "base", "blast", "op", "poly","mycelium",
         "mnt", "zks", "taiko", "celo", "avax", "scroll", "bnb",
         "linea", "zora", "glmr", "movr", "ron", "ftm", "kava",
-        "gno", "mekong", "mina" // All chains
+        "gno", "mekong", "mina" 
     ].into_iter().collect();
 
     let re = Regex::new(r"\b([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\b").unwrap();
