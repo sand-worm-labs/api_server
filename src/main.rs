@@ -1,21 +1,40 @@
-use std::any::type_name;
-
+use std::error::Error;
 use eql_core::{
     common::query_result::QueryResult as EqlQueryResult, interpreter::Interpreter as EQlInterpreter,
 };
-use rocket::http::Status;
-use rocket::response::{content::RawJson, content::RawText, status};
+use rocket::http::{Method, Status};
+use rocket::response::{content::RawJson, status};
 use serde::Serialize;
 use serde_json::json;
+
 use sui_ql_core::{
     common::query_result::QueryResult as SuiQueryResult,
     interpreter::Interpreter as SuiQlInterpreter,
 };
+use rocket::fairing::{Fairing, Info, Kind};
+use rocket::Request;
+use rocket::http::Header;
+use rocket::response::Response;
 
-use {
-    // gluesql::{gluesql_mongo_storage::MongoStorage, gluesql_redis_storage::RedisStorage, prelude::Glue},
-    std::fs,
-};
+pub struct CORS;
+
+#[rocket::async_trait]
+impl Fairing for CORS {
+    fn info(&self) -> Info {
+        Info {
+            name: "Attaching CORS headers to responses",
+            kind: Kind::Response
+        }
+    }
+
+    async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
+        response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
+        response.set_header(Header::new("Access-Control-Allow-Methods", "POST, GET, PATCH, OPTIONS"));
+        response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
+        response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
+    }
+}
+
 mod utils;
 
 #[macro_use]
@@ -30,7 +49,7 @@ pub enum QueryResult {
 
 #[get("/")]
 fn index() -> &'static str {
-    " Sandworm API Server is up and running!"
+    "Sandworm API Server is up and running!"
 }
 
 #[get("/health")]
@@ -44,8 +63,7 @@ async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<Stri
         return status::Custom(
             Status::BadRequest,
             RawJson(
-                r#"{"error": "Invalid type. Supported values are: 'rpc' or 'indexed'."} "#
-                    .to_string(),
+                r#"{"error": "Invalid type. Supported values are: 'rpc' or 'indexed'."} "#.to_string(),
             ),
         );
     }
@@ -56,6 +74,7 @@ async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<Stri
             RawJson(r#"{"error": "Only SELECT queries are allowed. CREATE, DROP, INSERT, UPDATE, DELETE, and other write ops are blocked."} "#.to_string()),
         );
     }
+
     if type_param == "rpc" {
         let (label, result): (&str, Result<QueryResult, _>) = if utils::is_sui_rpc_query(query) {
             let res = SuiQlInterpreter::run_program(query)
@@ -68,37 +87,42 @@ async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<Stri
                 .map(QueryResult::Eql);
             ("EQL", res)
         };
-
         match result {
             Ok(data) => match serde_json::to_string(&data) {
-                Ok(json) => {
-                    return status::Custom(Status::Ok, RawJson(json));
-                }
+                Ok(json) => status::Custom(Status::Ok, RawJson(json)),
                 Err(err) => {
                     let error_json = json!({
-                        "error": format!("{} serialization failed: {}", label, err.to_string())
+                        "error": format!("{} serialization failed: {}", label, err)
                     })
                     .to_string();
-                    return status::Custom(Status::InternalServerError, RawJson(error_json));
+                    status::Custom(Status::InternalServerError, RawJson(error_json))
                 }
             },
             Err(err) => {
                 let error_json = json!({
-                    "error": format!("{} query failed: {}", label, err.to_string())
+                    "error": format!("{} query failed: {}", label, err)
                 })
                 .to_string();
-                return status::Custom(Status::InternalServerError, RawJson(error_json));
+                status::Custom(Status::InternalServerError, RawJson(error_json))
             }
         }
     } else {
-        return status::Custom(
+        status::Custom(
             Status::InternalServerError,
             RawJson(r#"{"error": "Query execution failed."}"#.to_string()),
-        );
+        )
     }
+}
+
+#[options("/<_..>")]
+fn preflight_handler() -> &'static str {
+    ""
 }
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![index, run_query, health])
+
+    rocket::build()
+        .attach(CORS)
+        .mount("/", routes![index, run_query, health, preflight_handler])
 }
