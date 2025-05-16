@@ -138,7 +138,7 @@ async fn run_query(
 
         let wrapped_data: Vec<Value> = rows_json
             .into_iter()
-            .map(|row| json!({ "result": row }))
+            .map(|row| json!(row))
             .collect();
 
         return status::Custom(
@@ -146,7 +146,11 @@ async fn run_query(
             RawJson(
                 json!({
                     "type": "Wql",
-                    "data": wrapped_data
+                    "data": [
+                        {
+                          "result": wrapped_data
+                        }
+                    ]
                 })
                 .to_string(),
             ),
