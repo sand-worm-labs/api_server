@@ -1,4 +1,7 @@
 use regex::Regex;
+use rocket::{http::Status, response::{content::RawJson, status}};
+use serde::Serialize;
+use serde_json::json;
 use std::collections::HashSet;
 
 pub fn is_query_only(sql: String) -> bool {
@@ -40,4 +43,16 @@ pub fn flatten_known_chain_tables(sql: &str) -> String {
         }
     })
     .to_string()
+}
+
+
+pub fn json_response<T: Serialize>(status: Status, data: T) -> status::Custom<RawJson<String>> {
+    let body = serde_json::to_string(&data).unwrap_or_else(|e| {
+        json!({ "error": format!("Serialization failed: {}", e) }).to_string()
+    });
+    status::Custom(status, RawJson(body))
+}
+
+pub fn json_error<E: ToString>(err: E) -> status::Custom<RawJson<String>> {
+    json_response(Status::InternalServerError, json!({ "error": err.to_string() }))
 }

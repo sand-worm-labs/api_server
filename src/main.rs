@@ -1,22 +1,34 @@
-use gluesql;
+use std::sync::{Arc, Mutex};
+
+use futures::executor::block_on;
+use gluesql::{
+    gluesql_mongo_storage::MongoStorage,
+    prelude::Glue
+};
 use rocket::{
-    fairing::{Fairing, Info, Kind},
-    http::{Header, Status},
-    response::{content::RawJson, status, Response},
-    Request,
+    fairing::{Fairing, Info, Kind}, 
+    http::{Header, Status}, 
+    response::{content::RawJson, status, Response}, Request, State
 };
 
 use serde::Serialize;
 use serde_json::json;
 
 use eql_core::{
-    common::query_result::QueryResult as EqlQueryResult, interpreter::Interpreter as EQlInterpreter,
+    common::query_result::QueryResult as EqlQueryResult, 
+    interpreter::Interpreter as EQlInterpreter,
 };
 
 use sui_ql_core::{
     common::query_result::QueryResult as SuiQueryResult,
     interpreter::Interpreter as SuiQlInterpreter,
 };
+
+use tokio::sync::{mpsc, oneshot};
+
+mod glue_sql;
+use glue_sql::{GlueSql, SharedGlue};
+
 
 pub struct CORS;
 
@@ -63,7 +75,7 @@ fn health() -> RawJson<String> {
 }
 
 #[get("/run?<type_param>&<query>")]
-async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<String>> {
+async fn run_query(query: &str, type_param: &str, glue: &State<SharedGlue>) -> status::Custom<RawJson<String>> {
     if !matches!(type_param, "rpc" | "indexed") {
         return status::Custom(
             Status::BadRequest,
@@ -114,18 +126,40 @@ async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<Stri
         }
     } else {
         let flattened_query = utils::flatten_known_chain_tables(query);
-        let parsed = match gluesql::prelude::parse(flattened_query) {
+         match gluesql::prelude::parse(&flattened_query) {
             Ok(p) => p,
             Err(e) => {
                 let error_json = json!({"error": format!("{}", e)}).to_string();
                 return status::Custom(Status::BadRequest, RawJson(error_json),);
             }
         };
-        println!("Query: {:?}", parsed);
-
+       
+        let x  = block_on(glue.lock().await.execute(&flattened_query));
+        println!("{:?}", x);
+        match x {
+            Ok(data) => match serde_json::to_string(&data) {
+                Ok(json) => status::Custom(Status::Ok, RawJson(json)),
+                Err(err) => {
+                    let error_json = json!({
+                        "error": format!("Query serialization failed: {}", err)
+                    })
+                    .to_string();
+                 return  status::Custom(Status::InternalServerError, RawJson(error_json));
+                }
+            },
+            Err(err) => {
+                let error_json = json!({
+                    "error": format!("Query execution failed: {}", err)
+                })
+                .to_string();
+                return  status::Custom(Status::InternalServerError, RawJson(error_json));
+            }
+        };
+        
         status::Custom(
             Status::InternalServerError,
             RawJson(r#"{"error": "Query execution failed."}"#.to_string()),
+            
         )
     }
 }
@@ -136,8 +170,11 @@ fn preflight_handler() -> &'static str {
 }
 
 #[launch]
-fn rocket() -> _ {
+async fn rocket() -> _ {
+    let  glue = GlueSql::init().await;
+
     rocket::build()
+        .manage(glue)
         .attach(CORS)
         .mount("/", routes![index, run_query, health, preflight_handler])
 }
