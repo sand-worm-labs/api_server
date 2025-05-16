@@ -28,6 +28,7 @@ use tokio::sync::{mpsc, oneshot};
 
 mod glue_sql;
 use glue_sql::{GlueSql, SharedGlue};
+use utils::json_error;
 
 
 pub struct CORS;
@@ -108,30 +109,15 @@ async fn run_query(query: &str, type_param: &str, glue: &State<SharedGlue>) -> s
         match result {
             Ok(data) => match serde_json::to_string(&data) {
                 Ok(json) => status::Custom(Status::Ok, RawJson(json)),
-                Err(err) => {
-                    let error_json = json!({
-                        "error": format!("{} serialization failed: {}", label, err)
-                    })
-                    .to_string();
-                    status::Custom(Status::InternalServerError, RawJson(error_json))
-                }
+                Err(err) => json_error(err),
             },
-            Err(err) => {
-                let error_json = json!({
-                    "error": format!("{} query failed: {}", label, err)
-                })
-                .to_string();
-                status::Custom(Status::InternalServerError, RawJson(error_json))
-            }
+            Err(err) => json_error(err),
         }
     } else {
         let flattened_query = utils::flatten_known_chain_tables(query);
          match gluesql::prelude::parse(&flattened_query) {
             Ok(p) => p,
-            Err(e) => {
-                let error_json = json!({"error": format!("{}", e)}).to_string();
-                return status::Custom(Status::BadRequest, RawJson(error_json),);
-            }
+            Err(e) => return  json_error(e)
         };
        
         let x  = block_on(glue.lock().await.execute(&flattened_query));
@@ -139,21 +125,9 @@ async fn run_query(query: &str, type_param: &str, glue: &State<SharedGlue>) -> s
         match x {
             Ok(data) => match serde_json::to_string(&data) {
                 Ok(json) => status::Custom(Status::Ok, RawJson(json)),
-                Err(err) => {
-                    let error_json = json!({
-                        "error": format!("Query serialization failed: {}", err)
-                    })
-                    .to_string();
-                 return  status::Custom(Status::InternalServerError, RawJson(error_json));
-                }
+                Err(err) =>  return  json_error(err)
             },
-            Err(err) => {
-                let error_json = json!({
-                    "error": format!("Query execution failed: {}", err)
-                })
-                .to_string();
-                return  status::Custom(Status::InternalServerError, RawJson(error_json));
-            }
+            Err(err) =>  return  json_error(err)
         };
         
         status::Custom(

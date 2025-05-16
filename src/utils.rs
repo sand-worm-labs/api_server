@@ -54,5 +54,5 @@ pub fn json_response<T: Serialize>(status: Status, data: T) -> status::Custom<Ra
 }
 
 pub fn json_error<E: ToString>(err: E) -> status::Custom<RawJson<String>> {
-    json_response(Status::InternalServerError, json!({ "error": err.to_string() }))
+    json_response(Status::InternalServerError, json!({ "error": format!("{}", err.to_string()) }))
 }
