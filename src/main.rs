@@ -116,7 +116,11 @@ async fn run_query(
             Err(e) => return json_error(e),
         };
 
-        let rows_json: Vec<Value> = match sqlx::query(&flattened_query).fetch_all(&**pool).await {
+        let rows_json: Vec<Value> = match sqlx::query(&flattened_query)
+            .persistent(false)
+            .fetch_all(&**pool)
+            .await
+        {
             Ok(rows) => rows
                 .into_iter()
                 .map(|row| {
@@ -159,9 +163,9 @@ fn preflight_handler() -> &'static str {
 async fn rocket() -> _ {
     dotenv().ok();
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-
+    println!("Connecting to DB: {}", db_url);
     let pool = PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(1)
         .connect(&db_url)
         .await
         .expect("Could not connect to DB");
