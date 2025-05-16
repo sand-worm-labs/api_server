@@ -147,9 +147,7 @@ async fn run_query(
                 json!({
                     "type": "Wql",
                     "data": [
-                        {
-                          "result": wrapped_data
-                        }
+                        {"result": wrapped_data}
                     ]
                 })
                 .to_string(),
