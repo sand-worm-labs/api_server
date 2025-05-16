@@ -1,25 +1,19 @@
 use regex::Regex;
-use rocket::{http::Status, response::{content::RawJson, status}};
+use rocket::{
+    http::Status,
+    response::{content::RawJson, status},
+};
 use serde::Serialize;
 use serde_json::json;
 use std::collections::HashSet;
 
 pub fn is_query_only(sql: String) -> bool {
- const blacklist: &[&str] = &[
-    "INSERT",
-    "UPDATE",
-    "DELETE",
-    "CREATE",
-    "DROP",
-    "ALTER",
-    "TRUNCATE",
-    "REPLACE",
-    "GRANT",
-    "REVOKE",
-    "SHOW",
-];
+    const BLACKLIST: &[&str] = &[
+        "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "TRUNCATE", "REPLACE", "GRANT",
+        "REVOKE", "SHOW",
+    ];
     let upper = sql.to_uppercase();
-    blacklist.iter().any(|kw| upper.contains(kw))
+    BLACKLIST.iter().any(|kw| upper.contains(kw))
 }
 
 pub fn is_sui_rpc_query(query: &str) -> bool {
@@ -53,14 +47,16 @@ pub fn flatten_known_chain_tables(sql: &str) -> String {
     .to_string()
 }
 
-
 pub fn json_response<T: Serialize>(status: Status, data: T) -> status::Custom<RawJson<String>> {
-    let body = serde_json::to_string(&data).unwrap_or_else(|e| {
-        json!({ "error": format!("Serialization failed: {}", e) }).to_string()
-    });
+    let body = serde_json::to_string(&data)
+        .unwrap_or_else(|e| json!({ "error": format!("Serialization failed: {}", e) }).to_string());
     status::Custom(status, RawJson(body))
 }
 
 pub fn json_error<E: ToString>(err: E) -> status::Custom<RawJson<String>> {
-    json_response(Status::InternalServerError, json!({ "error": format!("{}", err.to_string()) }))
+    let err = err.to_string();
+    json_response(
+        Status::InternalServerError,
+        json!({ "error": format!("{}", err.to_string()) }),
+    )
 }

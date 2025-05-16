@@ -1,24 +1,17 @@
-use std::sync::{Arc, Mutex};
-
-use futures::executor::block_on;
-use gluesql::{
-    gluesql_mongo_storage::MongoStorage,
-    prelude::Glue
-};
 use rocket::{
-    fairing::{Fairing, Info, Kind}, 
-    http::{Header, Status}, 
-    response::{content::RawJson, status, Response}, Request, State
+    fairing::{Fairing, Info, Kind},
+    http::{Header, Status},
+    response::{content::RawJson, status, Response},
+    Request, State,
 };
 
 use serde::Serialize;
-use serde_json::json;
 
 use eql_core::{
-    common::query_result::QueryResult as EqlQueryResult, 
-    interpreter::Interpreter as EQlInterpreter,
+    common::query_result::QueryResult as EqlQueryResult, interpreter::Interpreter as EQlInterpreter,
 };
 
+use serde_json::{json, Value};
 use sui_ql_core::{
     common::query_result::QueryResult as SuiQueryResult,
     interpreter::Interpreter as SuiQlInterpreter,
@@ -26,10 +19,11 @@ use sui_ql_core::{
 
 use tokio::sync::{mpsc, oneshot};
 
-mod glue_sql;
-use glue_sql::{GlueSql, SharedGlue};
+use dotenv::dotenv;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::{Column, PgPool, Row};
+use std::env;
 use utils::json_error;
-
 
 pub struct CORS;
 
@@ -76,7 +70,11 @@ fn health() -> RawJson<String> {
 }
 
 #[get("/run?<type_param>&<query>")]
-async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<String>> {
+async fn run_query(
+    query: &str,
+    type_param: &str,
+    pool: &State<PgPool>,
+) -> status::Custom<RawJson<String>> {
     if !matches!(type_param, "rpc" | "indexed") {
         return status::Custom(
             Status::BadRequest,
@@ -115,27 +113,42 @@ async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<Stri
         }
     } else {
         let flattened_query = utils::flatten_known_chain_tables(query);
-         match gluesql::prelude::parse(&flattened_query) {
+        match gluesql::prelude::parse(&flattened_query) {
             Ok(p) => p,
-            Err(e) => return  json_error(e)
+            Err(e) => return json_error(e),
         };
-       
-        // let mut  glue_instance  = glue.lock().await;
-        // let x = glue_instance.execute(flattened_query).await.unwrap();
-        // println!("{:?}", x);
-        // match x {
-        //     Ok(data) => match serde_json::to_string(&data) {
-        //         Ok(json) => status::Custom(Status::Ok, RawJson(json)),
-        //         Err(err) =>  return  json_error(err)
-        //     },
-        //     Err(err) =>  return  json_error(err)
-        // };
-        
-        status::Custom(
-            Status::InternalServerError,
-            RawJson(r#"{"error": "Query execution failed."}"#.to_string()),
-            
-        )
+
+        let rows_json: Vec<Value> = match sqlx::query(&flattened_query).fetch_all(&**pool).await {
+            Ok(rows) => rows
+                .into_iter()
+                .map(|row| {
+                    let mut obj = serde_json::Map::new();
+                    for (i, column) in row.columns().iter().enumerate() {
+                        let column_name = column.name();
+                        let value: Result<Value, _> = row.try_get(i); // uses Decode support
+                        obj.insert(column_name.to_string(), value.unwrap_or(json!(null)));
+                    }
+                    Value::Object(obj)
+                })
+                .collect(),
+            Err(e) => return json_error(e),
+        };
+
+        let wrapped_data: Vec<Value> = rows_json
+            .into_iter()
+            .map(|row| json!({ "result": row }))
+            .collect();
+
+        return status::Custom(
+            Status::Ok,
+            RawJson(
+                json!({
+                    "type": "Wql",
+                    "data": wrapped_data
+                })
+                .to_string(),
+            ),
+        );
     }
 }
 
@@ -146,9 +159,17 @@ fn preflight_handler() -> &'static str {
 
 #[launch]
 async fn rocket() -> _ {
-    let  glue = GlueSql::init().await;
+    dotenv().ok();
+    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&db_url)
+        .await
+        .expect("Could not connect to DB");
 
     rocket::build()
+        .manage(pool)
         .attach(CORS)
         .mount("/", routes![index, run_query, health, preflight_handler])
 }
