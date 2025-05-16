@@ -76,7 +76,7 @@ fn health() -> RawJson<String> {
 }
 
 #[get("/run?<type_param>&<query>")]
-async fn run_query(query: &str, type_param: &str, glue: &State<SharedGlue>) -> status::Custom<RawJson<String>> {
+async fn run_query(query: &str, type_param: &str) -> status::Custom<RawJson<String>> {
     if !matches!(type_param, "rpc" | "indexed") {
         return status::Custom(
             Status::BadRequest,
@@ -120,15 +120,16 @@ async fn run_query(query: &str, type_param: &str, glue: &State<SharedGlue>) -> s
             Err(e) => return  json_error(e)
         };
        
-        let x  = block_on(glue.lock().await.execute(&flattened_query));
-        println!("{:?}", x);
-        match x {
-            Ok(data) => match serde_json::to_string(&data) {
-                Ok(json) => status::Custom(Status::Ok, RawJson(json)),
-                Err(err) =>  return  json_error(err)
-            },
-            Err(err) =>  return  json_error(err)
-        };
+        // let mut  glue_instance  = glue.lock().await;
+        // let x = glue_instance.execute(flattened_query).await.unwrap();
+        // println!("{:?}", x);
+        // match x {
+        //     Ok(data) => match serde_json::to_string(&data) {
+        //         Ok(json) => status::Custom(Status::Ok, RawJson(json)),
+        //         Err(err) =>  return  json_error(err)
+        //     },
+        //     Err(err) =>  return  json_error(err)
+        // };
         
         status::Custom(
             Status::InternalServerError,
@@ -148,7 +149,6 @@ async fn rocket() -> _ {
     let  glue = GlueSql::init().await;
 
     rocket::build()
-        .manage(glue)
         .attach(CORS)
         .mount("/", routes![index, run_query, health, preflight_handler])
 }

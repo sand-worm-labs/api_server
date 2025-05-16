@@ -1,13 +1,11 @@
 use std::env;
 use std::sync::Arc;
 use dotenv::dotenv;
-use gluesql::{
-    gluesql_mongo_storage::MongoStorage,
-    prelude::Glue,
-};
+use gluesql:: prelude::Glue;
+use gluesql_redis_storage::RedisStorage;
 use tokio::sync::Mutex;
 
-pub type SharedGlue = Arc<Mutex<Glue<MongoStorage>>>;
+pub type SharedGlue = Glue<RedisStorage>;
 
 pub struct GlueSql;
 
@@ -15,16 +13,9 @@ impl GlueSql {
     pub async fn init() -> SharedGlue   {
         dotenv().ok();
 
-        let mongo_uri = env::var("MONGOURI")
-            .unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+        let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+        let storage = RedisStorage::new("redis_storage_no_primarykey", &redis_url, 1000);
 
-        let db_name = env::var("MONGO_DB")
-            .unwrap_or_else(|_| "sandworm_db".to_string());
-
-        let storage = MongoStorage::new(&mongo_uri, &db_name)
-            .await
-            .expect("Failed to initialize MongoStorage");
-
-       Arc::new(Mutex::new(Glue::new(storage)))
+        Glue::new(storage)
     }
 }

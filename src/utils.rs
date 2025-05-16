@@ -5,11 +5,19 @@ use serde_json::json;
 use std::collections::HashSet;
 
 pub fn is_query_only(sql: String) -> bool {
-    let blacklist = [
-        "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "TRUNCATE", "REPLACE", "GRANT",
-        "REVOKE",
-    ];
-
+ const blacklist: &[&str] = &[
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "CREATE",
+    "DROP",
+    "ALTER",
+    "TRUNCATE",
+    "REPLACE",
+    "GRANT",
+    "REVOKE",
+    "SHOW",
+];
     let upper = sql.to_uppercase();
     blacklist.iter().any(|kw| upper.contains(kw))
 }
