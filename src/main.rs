@@ -17,8 +17,6 @@ use sui_ql_core::{
     interpreter::Interpreter as SuiQlInterpreter,
 };
 
-use tokio::sync::{mpsc, oneshot};
-
 use dotenv::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Column, PgPool, Row};
@@ -93,7 +91,7 @@ async fn run_query(
     }
 
     if type_param == "rpc" {
-        let (label, result): (&str, Result<QueryResult, _>) = if utils::is_sui_rpc_query(query) {
+        let (_label, result): (&str, Result<QueryResult, _>) = if utils::is_sui_rpc_query(query) {
             let res = SuiQlInterpreter::run_program(query)
                 .await
                 .map(QueryResult::Sui);
