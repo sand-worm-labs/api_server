@@ -2945,6 +2945,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dotenv"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
+
+[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8015,7 +8021,9 @@ name = "sandworm_api"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "dotenv",
  "eql_core",
+ "futures",
  "gluesql",
  "regex",
  "rocket",
@@ -8023,6 +8031,7 @@ dependencies = [
  "serde_json",
  "sqlparser 0.41.0",
  "sui_ql_core",
+ "tokio",
 ]
 
 [[package]]
@@ -9777,6 +9786,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2 0.5.9",
