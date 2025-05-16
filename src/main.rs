@@ -128,6 +128,7 @@ async fn run_query(
                     for (i, column) in row.columns().iter().enumerate() {
                         let column_name = column.name();
                         let value: Result<Value, _> = row.try_get(i); // uses Decode support
+                        println!("{:?}", value);
                         obj.insert(column_name.to_string(), value.unwrap_or(json!(null)));
                     }
                     Value::Object(obj)
