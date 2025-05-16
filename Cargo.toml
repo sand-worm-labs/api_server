@@ -16,9 +16,5 @@ chrono = "=0.4.39"
 tokio = { version = "1.38", features = ["full"] }
 dotenv = "0.15.0"
 futures = "0.3.31"
-
-[dependencies.gluesql]
-git = "https://github.com/sand-worm-labs/gluesql"
-branch = "main"
-default-features = false
-features = ["gluesql-mongo-storage", "gluesql-redis-storage"]
+gluesql = "0.16.3"
+gluesql-redis-storage = "0.16.3"
