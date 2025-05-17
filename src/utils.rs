@@ -63,7 +63,7 @@ pub fn is_query_only(sql: String) -> bool {
         "log_statement",                       // what kinds of statements are logged
     ];
     let upper = sql.to_uppercase();
-    !BLACKLIST.iter().any(|kw| upper.contains(kw))
+    BLACKLIST.iter().any(|kw| upper.contains(kw))
 }
 
 pub fn is_sui_rpc_query(query: &str) -> bool {
