@@ -118,13 +118,19 @@ pub fn decode_column_to_json(row: &sqlx::postgres::PgRow, i: usize, type_name: &
         "INT8" => json!(row.try_get::<Option<i64>, _>(i).ok().flatten()),
         "FLOAT4" => json!(row.try_get::<Option<f32>, _>(i).ok().flatten()),
         "FLOAT8" => json!(row.try_get::<Option<f64>, _>(i).ok().flatten()),
-        // .try_get::<Option<Decimal>, _>(i).ok().flatten()),
+        // Decimal / Numeric
+        "NUMERIC" | "DECIMAL" => {
+            // Use String because Decimal might need special parsing
+            json!(row.try_get::<Option<String>, _>(i).ok().flatten())
+        }
         "BOOL" => json!(row.try_get::<Option<bool>, _>(i).ok().flatten()),
 
+        // Text types
         "TEXT" | "VARCHAR" | "CHAR" | "BPCHAR" | "UUID" => {
             json!(row.try_get::<Option<String>, _>(i).ok().flatten())
         }
 
+        // Binary data
         "BYTEA" => row
             .try_get::<Option<Vec<u8>>, _>(i)
             .ok()
@@ -132,12 +138,14 @@ pub fn decode_column_to_json(row: &sqlx::postgres::PgRow, i: usize, type_name: &
             .map(|b| json!(base64::encode(b)))
             .unwrap_or(json!(null)),
 
+        // JSON types
         "JSON" | "JSONB" => row
             .try_get::<Option<Value>, _>(i)
             .ok()
             .flatten()
             .unwrap_or(json!(null)),
 
+        // Date/Time types
         "DATE" => row
             .try_get::<Option<chrono::NaiveDate>, _>(i)
             .map(|opt| opt.map(|d| json!(d.to_string())).unwrap_or(json!(null)))
@@ -155,6 +163,15 @@ pub fn decode_column_to_json(row: &sqlx::postgres::PgRow, i: usize, type_name: &
             .map(|v| v.map(|ts| json!(ts.to_rfc3339())).unwrap_or(json!(null)))
             .unwrap_or(json!(null)),
 
+        // Arrays (basic example for int arrays)
+        "_INT4" => row
+            .try_get::<Option<Vec<i32>>, _>(i)
+            .ok()
+            .flatten()
+            .map(|arr| json!(arr))
+            .unwrap_or(json!(null)),
+
+        // Default fallback for anything else
         _ => {
             let val: Result<Option<String>, _> = row.try_get(i);
             val.map(|v| json!(v)).unwrap_or(json!(null))
