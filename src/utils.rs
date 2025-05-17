@@ -1,4 +1,3 @@
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use regex::Regex;
 use rocket::{
     http::Status,
@@ -41,6 +40,27 @@ pub fn is_query_only(sql: String) -> bool {
         "pg_is_in_recovery()",
         "txid_current()",
         "pg_size_pretty()",
+        "USER",
+        "search_path",                         // current schema(s) being used
+        "client_encoding",                     // character encoding used by the client
+        "DateStyle",                           // date/time formatting
+        "TimeZone",                            // current timezone
+        "application_name",                    // app name used in logs/monitoring
+        "server_version",                      // PostgreSQL version
+        "is_superuser",                        // true/false if user is a superuser
+        "session_authorization",               // current session user
+        "standard_conforming_strings",         // string literal behavior
+        "transaction_isolation",               // read committed, repeatable read, etc.
+        "statement_timeout",                   // max time a query can run
+        "lock_timeout",                        // max time to wait on a lock
+        "idle_in_transaction_session_timeout", // timeout for idle tx
+        "max_connections",                     // total allowed DB connections
+        "shared_buffers",                      // memory buffer pool
+        "work_mem",                            // memory per sort/hash op
+        "maintenance_work_mem",                // memory for vacuum, create index
+        "effective_cache_size",                // planner estimate of OS cache
+        "log_min_duration_statement",          // logging slow queries
+        "log_statement",                       // what kinds of statements are logged
     ];
     let upper = sql.to_uppercase();
     !BLACKLIST.iter().any(|kw| upper.contains(kw))

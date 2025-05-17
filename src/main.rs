@@ -21,7 +21,7 @@ use dotenv::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Column, PgPool, Row};
 use std::env;
-use utils::{json_error, decode_column_to_json};
+use utils::{decode_column_to_json, json_error};
 
 pub struct CORS;
 
@@ -137,10 +137,7 @@ async fn run_query(
             Err(e) => return json_error(e),
         };
 
-        let wrapped_data: Vec<Value> = rows_json
-            .into_iter()
-            .map(|row| json!(row))
-            .collect();
+        let wrapped_data: Vec<Value> = rows_json.into_iter().map(|row| json!(row)).collect();
 
         return status::Custom(
             Status::Ok,
