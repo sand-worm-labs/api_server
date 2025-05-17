@@ -21,7 +21,7 @@ use dotenv::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Column, PgPool, Row};
 use std::env;
-use utils::json_error;
+use utils::{json_error, decode_column_to_json};
 
 pub struct CORS;
 
@@ -127,9 +127,9 @@ async fn run_query(
                     let mut obj = serde_json::Map::new();
                     for (i, column) in row.columns().iter().enumerate() {
                         let column_name = column.name();
-                        let value: Result<Value, _> = row.try_get(i); // uses Decode support
-                        println!("{:?}", value);
-                        obj.insert(column_name.to_string(), value.unwrap_or(json!(null)));
+                        let column_type = column.type_info().to_string();
+                        let value = decode_column_to_json(&row, i, &column_type);
+                        obj.insert(column_name.to_string(), value);
                     }
                     Value::Object(obj)
                 })
@@ -168,7 +168,6 @@ async fn rocket() -> _ {
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     println!("Connecting to DB: {}", db_url);
     let pool = PgPoolOptions::new()
-        .max_connections(1)
         .connect(&db_url)
         .await
         .expect("Could not connect to DB");
