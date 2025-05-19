@@ -3,7 +3,7 @@ use rocket::{
     http::Status,
     response::{content::RawJson, status},
 };
-use rust_decimal::Decimal;
+
 use serde::Serialize;
 use serde_json::json;
 use serde_json::Value;

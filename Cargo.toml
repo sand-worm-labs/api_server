@@ -7,7 +7,7 @@ authors = ["Ifechukwu Daniel <dandynamicx@gmail.com>"]
 [dependencies]
 rocket = "0.5.0-rc.1"
 sui_ql_core = { git = "https://github.com/sand-worm-labs/sandworm-sui-ql", package = "sui_ql_core" }
-eql_core = { git = "https://github.com/sand-worm-labs/sandworm-eql", package = "eql_core" }
+eql_core = { git = "https://github.com/sand-worm-labs/sandworm-eql", package = "eql_core"  }
 sqlparser = "0.41.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
