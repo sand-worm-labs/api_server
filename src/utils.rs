@@ -10,6 +10,23 @@ use serde_json::Value;
 use sqlx::Row;
 use std::collections::HashSet;
 
+pub fn remove_sql_comments(sql: &str) -> String {
+    // Regexes for each comment style
+    // 1. Block comments: /* ... */
+    let re_block = Regex::new(r"/\*[\s\S]*?\*/").unwrap();
+    // 2. -- single-line comments
+    let re_line1 = Regex::new(r"--[^\r\n]*").unwrap();
+    // 3. // single-line comments
+    let re_line2 = Regex::new(r"//[^\r\n]*").unwrap();
+
+    // Apply in order: block first, then single-line
+    let no_block = re_block.replace_all(sql, "");
+    let no_line1 = re_line1.replace_all(&no_block, "");
+    let no_line2 = re_line2.replace_all(&no_line1, "");
+
+    no_line2.into_owned()
+}
+
 pub fn is_query_only(sql: String) -> bool {
     const BLACKLIST: &[&str] = &[
         "INSERT",
@@ -176,5 +193,42 @@ pub fn decode_column_to_json(row: &sqlx::postgres::PgRow, i: usize, type_name: &
             let val: Result<Option<String>, _> = row.try_get(i);
             val.map(|v| json!(v)).unwrap_or(json!(null))
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::remove_sql_comments;
+
+    #[test]
+    fn test_remove_line_comments() {
+        let sql = "SELECT * FROM users; -- fetch all users\nINSERT INTO users VALUES (1); // add seed";
+        let expected = "SELECT * FROM users; \nINSERT INTO users VALUES (1); ";
+        assert_eq!(remove_sql_comments(sql), expected);
+    }
+
+    #[test]
+    fn test_remove_block_comments() {
+        let sql = "/* setup */\nCREATE TABLE users (id INT); /* trailing */";
+        let expected = "\nCREATE TABLE users (id INT); ";
+        assert_eq!(remove_sql_comments(sql), expected);
+    }
+
+    #[test]
+    fn test_combined_comments() {
+        let sql = r#"
+            /* start */
+            SELECT 1; -- comment
+            // another
+            INSERT INTO t VALUES ('--not a comment in string'); /* end */
+        "#;
+        let cleaned = remove_sql_comments(sql);
+        assert!(cleaned.contains("SELECT 1;"));
+        assert!(cleaned.contains("INSERT INTO t VALUES ('--not a comment in string');"));
+        assert!(!cleaned.contains("/* start */"));
+        assert!(!cleaned.contains("-- comment"));
+        assert!(!cleaned.contains("// another"));
+        assert!(!cleaned.contains("/* end */"));
     }
 }

@@ -18,7 +18,7 @@ use sui_ql_core::{
 };
 
 use dotenv::dotenv;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::{postgres::PgPoolOptions, query};
 use sqlx::{Column, PgPool, Row};
 use std::env;
 use utils::{decode_column_to_json, json_error};
@@ -82,7 +82,7 @@ async fn run_query(
             ),
         );
     }
-
+    let query = &utils::remove_sql_comments(query);
     if utils::is_query_only(query.to_owned()) {
         return status::Custom(
             Status::BadRequest,
@@ -110,7 +110,7 @@ async fn run_query(
             Err(err) => json_error(err),
         }
     } else {
-        let flattened_query = utils::flatten_known_chain_tables(query);
+        let flattened_query = utils::flatten_known_chain_tables(&query);
         match gluesql::prelude::parse(&flattened_query) {
             Ok(p) => p,
             Err(e) => return json_error(e),
