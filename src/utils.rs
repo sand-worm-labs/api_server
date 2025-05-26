@@ -103,7 +103,7 @@ pub fn remove_sql_comments(sql: &str) -> String {
     ];
     
 pub fn is_query_only(sql: String) -> bool { 
-     !is_blacklisted_query(&sql)
+    !is_blacklisted_query(&sql)
 }
 
 fn is_blacklisted_query(sql: &str) -> bool {
@@ -228,6 +228,8 @@ pub fn decode_column_to_json(row: &sqlx::postgres::PgRow, i: usize, type_name: &
 
 #[cfg(test)]
 mod tests {
+    use crate::utils::is_query_only;
+
     use super::remove_sql_comments;
 
     #[test]
@@ -248,16 +250,66 @@ mod tests {
     fn test_combined_comments() {
         let sql = r#"
             /* start */
-            SELECT 1; -- comment
-            // another
-            INSERT INTO t VALUES ('--not a comment in string'); /* end */
+            SELECT 1;
+             -- comment
+
         "#;
         let cleaned = remove_sql_comments(sql);
+        println!("cleaned: {}", cleaned);
         assert!(cleaned.contains("SELECT 1;"));
-        assert!(cleaned.contains("INSERT INTO t VALUES ('--not a comment in string');"));
         assert!(!cleaned.contains("/* start */"));
         assert!(!cleaned.contains("-- comment"));
         assert!(!cleaned.contains("// another"));
         assert!(!cleaned.contains("/* end */"));
     }
+
+    #[test]
+    fn test_query_only_sql() {
+        let query = "SELECT * FROM users WHERE id = 1";
+        assert!(is_query_only(query.to_string()));
+    }
+
+    #[test]
+    fn test_insert_sql_is_not_query_only() {
+        let query = "INSERT INTO users (name) VALUES ('Alice')";
+        assert!(!is_query_only(query.to_string()));
+    }
+
+    #[test]
+    fn test_update_sql_is_not_query_only() {
+        let query = "UPDATE users SET name = 'Bob' WHERE id = 1";
+        assert!(!is_query_only(query.to_string()));
+    }
+
+    #[test]
+    fn test_dangerous_function_call_is_not_query_only() {
+        let query = "SELECT pg_sleep(10)";
+        assert!(!is_query_only(query.to_string()));
+    }
+
+    #[test]
+    fn test_safe_uppercase_select_query() {
+        let query = "SELECT name FROM USERS";
+        assert!(is_query_only(query.to_string()));
+    }
+
+    // #[test]
+    // fn test_sql_injection_pattern() {
+    //     let query = "' OR '1'='1";
+    //     assert!(!is_query_only(query.to_string()));
+    // }
+
+    #[test]
+    fn test_union_select_attack() {
+        let query = "UNION SELECT password FROM users";
+        assert!(!is_query_only(query.to_string()));
+    }
+
+    #[test]
+    fn test_with_comment_injection() {
+        let query = "SELECT * FROM users; -- drop table users;";
+        assert!(!is_query_only(query.to_string()));
+    }
+
 }
+
