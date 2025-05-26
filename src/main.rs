@@ -83,7 +83,7 @@ async fn run_query(
         );
     }
     let query = &utils::remove_sql_comments(query);
-    if utils::is_query_only(query.to_owned()) {
+    if !utils::is_query_only(query.to_owned()) {
         return status::Custom(
             Status::BadRequest,
             RawJson(r#"{"error": "Only SELECT queries are allowed. CREATE, DROP, INSERT, UPDATE, DELETE, and other write ops are blocked."} "#.to_string()),
