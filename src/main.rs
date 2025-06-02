@@ -18,7 +18,6 @@ use sui_ql_core::{
 
 use dotenv::dotenv;
 use sqlx::any::AnyPool;
-use std::env;
 use crate::utils::json_error;
 
 

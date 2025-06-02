@@ -101,6 +101,7 @@ pub fn sql_nonnull_to_json<'r>(mut get_ref: impl FnMut() -> sqlx::any::AnyValueR
 }
 
 /// Takes the first column of a row and converts it to a string.
+#[warn(dead_code)]
 pub fn row_to_string(row: &AnyRow) -> Option<String> {
     let col = row.columns().first()?;
     match sql_to_json(row, col) {
@@ -135,7 +136,7 @@ pub fn add_value_to_map(
     map
 }
 
-#[must_use]
+#[warn(dead_code)]
 pub fn test_database_url() -> String {
     std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite::memory:".to_string())
 }
@@ -147,6 +148,7 @@ mod tests {
 
     use super::*;
     use sqlx::Connection;
+    use super::test_database_url;
 
     fn setup_logging() {
         let _ = env_logger::builder()

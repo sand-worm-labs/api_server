@@ -26,7 +26,7 @@ pub fn remove_sql_comments(sql: &str) -> String {
     no_line2.into_owned()
 }
 
- const BLACKLIST: &[&str] = &[
+ const _BLACKLIST: &[&str] = &[
         // DML
         "INSERT", "UPDATE", "DELETE", "MERGE", "UPSERT", "TRUNCATE", "RETURNING", "OVERRIDING SYSTEM VALUE",
 
