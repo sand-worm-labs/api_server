@@ -6,22 +6,21 @@ use rocket::{
 };
 
 use serde::Serialize;
-
 use eql_core::{
     common::query_result::QueryResult as EqlQueryResult, interpreter::Interpreter as EQlInterpreter,
 };
-
 use serde_json::{json, Value};
+use sql_to_json::row_to_json;
 use sui_ql_core::{
     common::query_result::QueryResult as SuiQueryResult,
     interpreter::Interpreter as SuiQlInterpreter,
 };
 
 use dotenv::dotenv;
-use sqlx::{postgres::PgPoolOptions, query};
-use sqlx::{Column, PgPool, Row};
+use sqlx::any::AnyPool;
 use std::env;
-use utils::{decode_column_to_json, json_error};
+use crate::utils::json_error;
+
 
 pub struct CORS;
 
@@ -46,6 +45,7 @@ impl Fairing for CORS {
 }
 
 mod utils;
+mod sql_to_json;
 
 #[macro_use]
 extern crate rocket;
@@ -71,7 +71,7 @@ fn health() -> RawJson<String> {
 async fn run_query(
     query: &str,
     type_param: &str,
-    pool: &State<PgPool>,
+    pool: &State<AnyPool>,
 ) -> status::Custom<RawJson<String>> {
     if !matches!(type_param, "rpc" | "indexed") {
         return status::Custom(
@@ -82,26 +82,28 @@ async fn run_query(
             ),
         );
     }
+
     let query = &utils::remove_sql_comments(query);
+
     if !utils::is_query_only(query.to_owned()) {
         return status::Custom(
             Status::BadRequest,
-            RawJson(r#"{"error": "Only SELECT queries are allowed. CREATE, DROP, INSERT, UPDATE, DELETE, and other write ops are blocked."} "#.to_string()),
+            RawJson(
+                r#"{"error": "Only SELECT queries are allowed. CREATE, DROP, INSERT, UPDATE, DELETE, and other write ops are blocked."} "#
+                    .to_string(),
+            ),
         );
     }
 
     if type_param == "rpc" {
         let (_label, result): (&str, Result<QueryResult, _>) = if utils::is_sui_rpc_query(query) {
-            let res = SuiQlInterpreter::run_program(query)
-                .await
-                .map(QueryResult::Sui);
+            let res = SuiQlInterpreter::run_program(query).await.map(QueryResult::Sui);
             ("SUI_QL", res)
         } else {
-            let res = EQlInterpreter::run_program(query)
-                .await
-                .map(QueryResult::Eql);
+            let res = EQlInterpreter::run_program(query).await.map(QueryResult::Eql);
             ("EQL", res)
         };
+
         match result {
             Ok(data) => match serde_json::to_string(&data) {
                 Ok(json) => status::Custom(Status::Ok, RawJson(json)),
@@ -111,48 +113,33 @@ async fn run_query(
         }
     } else {
         let flattened_query = utils::flatten_known_chain_tables(&query);
-        match gluesql::prelude::parse(&flattened_query) {
-            Ok(p) => p,
-            Err(e) => return json_error(e),
-        };
+        if let Err(e) = gluesql::prelude::parse(&flattened_query) {
+            return json_error(e);
+        }
 
-        let rows_json: Vec<Value> = match sqlx::query(&flattened_query)
-            .persistent(false)
-            .fetch_all(&**pool)
-            .await
-        {
-            Ok(rows) => rows
-                .into_iter()
-                .map(|row| {
-                    let mut obj = serde_json::Map::new();
-                    for (i, column) in row.columns().iter().enumerate() {
-                        let column_name = column.name();
-                        let column_type = column.type_info().to_string();
-                        let value = decode_column_to_json(&row, i, &column_type);
-                        obj.insert(column_name.to_string(), value);
-                    }
-                    Value::Object(obj)
-                })
-                .collect(),
+        let rows_json: Vec<Value> = match sqlx::query(&flattened_query).fetch_all(&**pool).await {
+            Ok(rows) => rows.into_iter().map(|row| row_to_json(&row)).collect(),
             Err(e) => return json_error(e),
         };
 
         let wrapped_data: Vec<Value> = rows_json.into_iter().map(|row| json!(row)).collect();
 
-        return status::Custom(
+        status::Custom(
             Status::Ok,
             RawJson(
                 json!({
                     "type": "Wql",
                     "data": [
-                        {"result":{
-                             "indexed": wrapped_data
-                        }}
+                        {
+                            "result": {
+                                "indexed": wrapped_data
+                            }
+                        }
                     ]
                 })
                 .to_string(),
             ),
-        );
+        )
     }
 }
 
@@ -161,13 +148,16 @@ fn preflight_handler() -> &'static str {
     ""
 }
 
-#[launch]
-async fn rocket() -> _ {
+#[rocket::main]
+async fn main() -> Result<(), rocket::Error> {
+    // CryptoProvider::install_default();
+
     dotenv().ok();
-    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     println!("Connecting to DB: {}", db_url);
-    let pool = PgPoolOptions::new()
-        .connect(&db_url)
+
+    let pool = sqlx::AnyPool::connect(&db_url)
         .await
         .expect("Could not connect to DB");
 
@@ -175,4 +165,8 @@ async fn rocket() -> _ {
         .manage(pool)
         .attach(CORS)
         .mount("/", routes![index, run_query, health, preflight_handler])
+        .launch()
+        .await?;
+
+    Ok(())
 }
